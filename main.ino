@@ -15,7 +15,7 @@
 zltech_controller zltech(NODE_ID);
 
 // === Robot Hardware ===
-#define WHEELSIZE  0.1651
+#define WHEEL_R  0.08255
 #define WHEELBASE  0.4
 
 // === Portenta Hardware ===
@@ -84,41 +84,11 @@ void setup() {
   delay(50);
 
   state = MOTOR_IDLE;
-  // SERIAL_DEBUG.println("CAN start");
+  
   zltech.init();
-  zltech.writeObject(0x1017, 0x00, 1000, 16);
-  // delay(50);
-
-  // zltech.setHeartbeat();
-
-  // while (!is_motor_connected) {
-  //   if (CAN.available()) {
-  //     zltech_msg = CAN.read();
-      
-  //     zltech.setup(zltech_msg);
-
-  //     is_motor_connected = zltech.isConnected(zltech_msg);
-
-  //     SERIAL_DEBUG.println(zltech_msg);
-  //   }
-
-  while (!is_motor_connected) {
-    if (CAN.available()) {
-      zltech_msg = CAN.read();
-
-      zltech.loop(zltech_msg);
-
-      is_motor_connected = zltech.isConnected();
-      SERIAL_DEBUG.print("zltech state:");
-      SERIAL_DEBUG.println(zltech._state);
-      SERIAL_DEBUG.println(zltech_msg);
-    }
-
-    SERIAL_DEBUG.println("MOTOR CONNECTING...");
-    SERIAL_DEBUG.println("===================");
-
-    delay(50);
-  }
+  zltech.setup();
+  is_motor_connected = zltech.isConnected();
+  delay(50);
   
   state = RF_IDLE;
   rf_controller.setMaxOmega(30.0); // [deg]
@@ -175,59 +145,40 @@ void taskRF(){
   }
 }
 
-// 모터 컨트롤 들어가야하는 부분 
+// Motor control 
 void taskRobotControl(){
   while(true){
     ef.wait_any(FLAG_ROBOT_CONTROL);
     
-    if (CAN.available()) {
-      zltech_msg = CAN.read();
+    // DD Robot
+    int32_t l_rpm = 0;
+    int32_t r_rpm = 0;
+    zltech.loop();
+    is_motor_connected = zltech.isConnected();
 
-      zltech.loop(zltech_msg);
-
-      SERIAL_DEBUG.print("zltech state:");
-      SERIAL_DEBUG.println(zltech._state);
-      SERIAL_DEBUG.println(zltech_msg);
-      SERIAL_DEBUG.println(stateToString(state));
-      SERIAL_DEBUG.println("======");
-
-      is_motor_connected = zltech.isConnected();
-
-      // if (! is_motor_connected) {
-      //   SERIAL_DEBUG.println("Motor disconnected");
-      // }
-    }
-
+    // Common
     is_estop = (is_estop_btn_on || is_estop_rf_on || is_rf_disconnected);
 
-    // if (! is_motor_connected) state = MOTOR_IDLE;
-    if (is_estop) state = ESTOP;
+    if (! is_motor_connected) state = MOTOR_IDLE;
+    else if (is_estop) state = ESTOP;
 
     switch (state) {
       case ESTOP: {
-        if (is_estop_btn_on) {
-          SERIAL_DEBUG.println("button on");
-        }
-        if (is_estop_rf_on) {
-          SERIAL_DEBUG.println("rf on");
-        }
-        if (is_rf_disconnected) {
-          SERIAL_DEBUG.println("rf disconnect");
-        }
-
         if (!is_estop) {
-          state = MOTOR_IDLE;
+          state = DRIVE_READY;
           break;
         }
 
-        zltech.sendVelocity(0, 0);
         break;
       }
       
       case MOTOR_IDLE: {
         if (is_motor_connected) {
-          state = RF_IDLE;
+          state = DRIVE_READY;
         }
+        
+        // DD Robot
+        zltech.setup();
         break;
       }
 
@@ -235,9 +186,6 @@ void taskRobotControl(){
         if (!is_rf_disconnected){
           state = DRIVE_READY;
         }
-        // else {
-        //   rf_controller.begin();
-        // }
         break;
       }
 
@@ -255,24 +203,22 @@ void taskRobotControl(){
         // Motor Control
         float v; // m/s * 100 scale
         float w; // rad/s * 1000 scale
-
-        v = (float)(velocity) / 100.0f * 1.5f; // -3~3[m/s]
-        w = (float)(omega) / 1000.0f; // [rad/s]
+        v = (float)(velocity) / 100.0f; // -3 ~ 3[m/s]
+        w = (float)(omega) / 1000.0f; // -2 ~ 2 [rad/s]
         float delta_vel = w * (WHEELBASE / 2.0); // [m/s]
 
         float v_left = v - delta_vel; // [m/s]
         float v_right = v + delta_vel; // [m/s]
 
-        float rpm_left = (v_left / WHEELSIZE * 60.0f) / (2.0f * PI);
-        float rpm_right = (v_right / WHEELSIZE * 60.0f) / (2.0f * PI);
+        float rpm_left = v_left / WHEEL_R * 60.0f / (2.0f * PI);
+        float rpm_right = v_right / WHEEL_R * 60.0f / (2.0f * PI);
 
-        int32_t l_rpm = static_cast<int32_t>(rpm_left);
-        int32_t r_rpm = static_cast<int32_t>(rpm_right);
+        l_rpm = static_cast<int32_t>(rpm_left);
+        r_rpm = static_cast<int32_t>(rpm_right);
 
-        zltech.sendVelocity(l_rpm, -r_rpm);
-        if (zltech_msg.id == 0x180+NODE_ID){
-          zltech.readVelocity(zltech_msg, &left_actual_rpm, &right_actual_rpm );
-        }
+        // if (zltech_msg.id == 0x180+NODE_ID){
+        //   zltech.readVelocity(zltech_msg, &left_actual_rpm, &right_actual_rpm );
+        // }
         break;
       }
 
@@ -295,9 +241,6 @@ void taskRobotControl(){
         if (drive_mode != MODE_AUTO) state = DRIVE_READY;
 
         if (is_upper_connected) state = DRIVE_AUTO;
-
-        zltech.sendVelocity(0, 0);
-        
         break;
       }
 
@@ -305,6 +248,9 @@ void taskRobotControl(){
         break;
       }
     }
+
+    zltech.sendVelocity(l_rpm, -r_rpm);
+    zltech.readVelocity(&left_actual_rpm, &right_actual_rpm );
   }
 }
 

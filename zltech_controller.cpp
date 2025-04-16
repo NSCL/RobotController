@@ -7,11 +7,6 @@
 zltech_controller::zltech_controller(uint8_t nodeId)
     : _nodeId(nodeId) {}
 
-CanMsg zltech_controller::canread(){
-    CanMsg msg = CAN.read();
-    return msg;
-}
-
 bool zltech_controller::init() {
   if (!CAN.begin(CanBitRate::BR_500k)) {
         // Serial.println("CAN 초기화 실패");
@@ -20,12 +15,34 @@ bool zltech_controller::init() {
     }
     return true;
 
-    // while (!CAN.available()) {
-    //   CAN.begin(CanBitRate::BR_500k);
-    //   delay(100);
-    // }
-    // return true;
 }
+
+// void zltech_controller::can_init(){
+//   if (!CAN.begin(CanBitRate::BR_500k)) {
+//     while(1);
+//   }
+// }
+
+void zltech_controller::setup(){
+  writeObject(0x1017, 0x00, 1000, 16); // Heartbeat 
+
+  while (!_isMotorConnect){
+    if (CAN.available()) {
+      CanMsg msg;
+      msg = CAN.read();
+
+      if (msg.id == (0x700 + _nodeId) && msg.data_length == 1) {
+        VelocityMode(); // Start
+        _lastHeartbeatTime = millis();
+        _isMotorConnect = true;
+        break;
+      }
+    }
+
+    _lastCANReceivedTime = millis();
+    delay(50);
+    }
+  }
 
 void zltech_controller::setNMT(uint8_t command) {
     uint8_t nmt[2] = { command, _nodeId };
@@ -48,75 +65,30 @@ bool zltech_controller::isConnected(){
   return _isMotorConnect;
 }
 
-// void zltech_controller::setHeartbeat(){
-  
-//   _isHBReady = true;
+void zltech_controller::loop(){
+  if (CAN.available()) {
+    _lastCANReceivedTime = millis();
 
-// }
+    CanMsg msg;
+    msg = CAN.read();
 
-void zltech_controller::loop(const CanMsg& msg){
-  if (msg.id == (0x700 + _nodeId) && msg.data_length == 1 && msg.data[0] == 0x00) {
-    _lastSetupReadyTime = millis();
-    _state = ZLTECH_MOTOR_VEL_MODE_SETUP;
-  }
-
-  switch (_state) {
-    case ZLTECH_MOTOR_INIT: {
-      _state = ZLTECH_MOTOR_HEARTBEAT_SETUP;
-      break;
+    if (msg.id == (0x700 + _nodeId) && msg.data[0] == 0x05){
+      updateHeartbeatTimestamp();
     }
 
-    case ZLTECH_MOTOR_HEARTBEAT_SETUP: {
-      // init();
-      writeObject(0x1017, 0x00, 1000, 16); // 하트비트 100ms마다 전송
-      // delay(100);
-      _lastSetupReadyTime = millis();
-      _state = ZLTECH_MOTOR_VEL_MODE_SETUP;
-      break;
-    } 
-
-    case ZLTECH_MOTOR_VEL_MODE_SETUP: {
-      if (millis() - _lastSetupReadyTime > 2000) {
-        _state = ZLTECH_MOTOR_HEARTBEAT_SETUP;
-        break;
-      }
-
-      if (msg.id == (0x700 + _nodeId) && msg.data_length == 1) {
-        // if (msg.data[0] == 0x00 || msg.data[0] == 0x04) {
-        if (msg.data[0] != 0x05) {
-          VelocityMode();
-        }
-        _lastHeartbeatTime = millis();
-        _isMotorConnect = true;
-        _state = ZLTECH_MOTOR_AVAILABLE;
-        break;
-      }
-      break;
-    }
-
-    case ZLTECH_MOTOR_AVAILABLE: {
-      if (msg.id == (0x700 + _nodeId) && msg.data[0] == 0x05){
-        updateHeartbeatTimestamp();
-      }
-      
-      _isMotorConnect = ! checkHeartbeatTimeout(5000);
-
-      if (!_isMotorConnect) {
-        _state = ZLTECH_MOTOR_HEARTBEAT_SETUP;
-        break;
-      }
-
-      break;
+    else if (msg.id == 0x180 + _nodeId){
+      tpdo[0].onReceive(msg.data, msg.data_length);
+      leftVel = tpdo[0].getMappedValue(Velocity_actual_value, Left_Motor_Velocity_actual_value); 
+      rightVel = tpdo[0].getMappedValue(Velocity_actual_value, Right_Motor_Velocity_actual_value);
     }
   }
-  
-}
 
-void zltech_controller::setVelocityMode(const CanMsg& msg){
-    if (msg.id == (0x700 + _nodeId) && msg.data_length == 1 && msg.data[0] == 0x00) {
-        VelocityMode();
-        // Serial.println("[INFO] Node boot-up detected!");
-    } 
+  bool isCANConnected = true;
+  if (millis() - _lastCANReceivedTime > 1000){
+    isCANConnected = false;
+  }
+
+  _isMotorConnect = ! checkHeartbeatTimeout(5000) || !isCANConnected;
 }
 
 bool zltech_controller::VelocityMode() {
@@ -161,11 +133,7 @@ void zltech_controller::sendVelocity(int32_t l_rpm, int32_t r_rpm){
     rpdo[0].sendVel(l_rpm, r_rpm);
 }
 
-void zltech_controller::readVelocity(const CanMsg& msg, int32_t* left_actual_rpm, int32_t* right_actual_rpm){
-    tpdo[0].onReceive(msg.data, msg.data_length);
-    int32_t leftVel = tpdo[0].getMappedValue(Velocity_actual_value, Left_Motor_Velocity_actual_value); 
-    int32_t rightVel = tpdo[0].getMappedValue(Velocity_actual_value, Right_Motor_Velocity_actual_value);
-
+void zltech_controller::readVelocity(int32_t* left_actual_rpm, int32_t* right_actual_rpm){
     *left_actual_rpm = leftVel * 0.1;
     *right_actual_rpm = rightVel * (-0.1);
 }

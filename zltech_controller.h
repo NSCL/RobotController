@@ -55,29 +55,19 @@ public:
     int32_t getMappedValue(uint16_t index, uint8_t subIdx) const;
 };
 
-enum Zltech_Motor_State : uint8_t{
-    ZLTECH_MOTOR_INIT,
-    ZLTECH_MOTOR_HEARTBEAT_SETUP,
-    ZLTECH_MOTOR_VEL_MODE_SETUP,
-    ZLTECH_MOTOR_AVAILABLE
-};
-
 class zltech_controller {
 private:
-    unsigned long _bitrate;
     unsigned long _lastHeartbeatTime = 0;
-    unsigned long _lastSetupReadyTime = 0;
+    unsigned long _lastCANReceivedTime = 0;
     bool _isMotorConnect = false;
-
-    
+    int32_t leftVel = 0; 
+    int32_t rightVel = 0;
 
 public:
     uint8_t _nodeId;
 
     zltech_controller(uint8_t nodeId);
-    
-    CanMsg canread();
-    
+        
     bool init();
     void setNMT(uint8_t command);  // 0x01: operation, 0x02: stop, 0x80: pre-operation, 0x82: reset
     void writeObject(uint16_t index, uint8_t subIndex, uint32_t value, uint8_t sizeBytes);
@@ -87,21 +77,17 @@ public:
 
     // 모터 velocity mode setup
     bool VelocityMode();
-    void setVelocityMode(const CanMsg& msg);
     void sendVelocity(int32_t l_rpm, int32_t r_rpm);
-    void readVelocity(const CanMsg& msg, int32_t* left_actual_rpm, int32_t* right_actual_rpm);
+    void readVelocity(int32_t* left_actual_rpm, int32_t* right_actual_rpm);
 
     // 하트비트 관련 
-    // void sendHeartbeat(uint8_t state);
-    // uint8_t readHeartbeat(const CanMsg& msg);
     void updateHeartbeatTimestamp();        // 하트비트 수신 시 갱신
     bool checkHeartbeatTimeout(uint32_t timeoutMs = 2000);  // 타임아웃 확인
 
     bool isConnected();
-    void loop(const CanMsg& msg);
-
-    Zltech_Motor_State _state = ZLTECH_MOTOR_INIT;
-    // void setHeartbeat();
+    void loop();
+    void setup();
+    // void can_init();
 };
 
 #endif // ZLTECH_CONTROLLER_H

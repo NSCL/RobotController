@@ -59,7 +59,6 @@ void PcComm::loop() {
 
   updateConnectionStatus();
 
-  
 }
 
 void PcComm::processIncomingData() {

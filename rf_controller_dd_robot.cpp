@@ -13,7 +13,7 @@ void RFControllerDDRobot::setMaxOmega(float max_omega_) {
 }
 
 void RFControllerDDRobot::getVelocity(int* velocity) {
-  int val = readChannel(CH_VEL_BRK, -200, 200, -1000) - 1;
+  int val = readChannel(CH_VEL_BRK, -300, 300, -1000) - 1; // -3 ~ 3m/s
   // *velocity = val > 0 ? val : 0;
   if (val <= 3 && val >= -3)
   {
