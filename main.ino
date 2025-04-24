@@ -10,9 +10,10 @@
 
 #include "mbed.h"
 
+// === Motor Driver ===
 #define NODE_ID 1
-
 zltech_controller zltech(NODE_ID);
+CanMsg zltech_msg;
 
 // === Robot Hardware ===
 #define WHEEL_R  0.08255
@@ -24,6 +25,7 @@ zltech_controller zltech(NODE_ID);
 #define SERIAL_PC Serial
 #define SERIAL_DEBUG Serial1
 #define PIN_ESTOP 6
+#define voltagePin A0
 
 // === RF Controller Channel ===
 #define CH_ESTOP 7
@@ -44,7 +46,7 @@ uint8_t heartbeatState = 255;
 int32_t left_actual_rpm = 0;
 int32_t right_actual_rpm = 0;
 byte brake = 0;
-byte battery_voltage = 120;
+uint8_t battery = 140;
 
 RFControllerDDRobot rf_controller(SERIAL_RF);
 PcComm upper_comm;
@@ -55,25 +57,27 @@ bool is_estop_rf_on = false;
 bool is_rf_disconnected = false;
 bool is_upper_connected = false;
 bool is_motor_connected = false;
+bool is_battery_low = false;
 
 // === Threads & Mutex ===
 rtos::Thread threadRF; // RF Controller Thread
 rtos::Thread threadRobotControl; // Motor Control Thread
 rtos::Thread threadUpperComm; // PC <-> Portenta Communication Thread
+rtos::Thread threadBattery; // Battery check
 rtos::Mutex dataMutex;
 
 #define FLAG_RF (1UL << 0)
 #define FLAG_ROBOT_CONTROL (1UL << 1)
 #define FLAG_UPPER_COMM (1UL << 2)
+#define FLAG_BATTERY (1UL << 3)
 
 mbed::Ticker tick1ms;   /* 10 ms*/
 uint32_t tick_cnt = 0;
 const uint8_t tick_robot_control = 10; // 10 ms
 const uint8_t tick_rf = 20; // 20 ms
 const uint8_t tick_upper = 2; // 2 ms
+const uint8_t tick_battery = 1000; // 1000 ms
 rtos::EventFlags ef;
-
-CanMsg zltech_msg;
 
 void setup() {
   
@@ -106,7 +110,7 @@ void setup() {
   threadRF.start(taskRF);
   threadRobotControl.start(taskRobotControl);
   threadUpperComm.start(taskUpperComm);
-
+  threadBattery.start(taskBattery);
 }
 
 void taskRF(){
@@ -157,7 +161,7 @@ void taskRobotControl(){
     is_motor_connected = zltech.isConnected();
 
     // Common
-    is_estop = (is_estop_btn_on || is_estop_rf_on || is_rf_disconnected);
+    is_estop = (is_estop_btn_on || is_estop_rf_on || is_rf_disconnected || is_battery_low);
 
     if (! is_motor_connected) state = MOTOR_IDLE;
     else if (is_estop) state = ESTOP;
@@ -233,7 +237,6 @@ void taskRobotControl(){
       case DRIVE_AUTO: {
         if (drive_mode != MODE_AUTO) state = DRIVE_READY;
 
-        
         break;
       }
       
@@ -259,7 +262,7 @@ void taskUpperComm(){
     ef.wait_any(FLAG_UPPER_COMM);
 
     upper_comm.loop();
-    upper_comm.sendPacket(drive_mode, estop, gear, velocity, omega, brake, left_actual_rpm, right_actual_rpm, battery_voltage);
+    upper_comm.sendPacket(drive_mode, estop, gear, velocity, omega, brake, left_actual_rpm, right_actual_rpm, battery);
 
     is_upper_connected = upper_comm.is_connected;
     
@@ -276,11 +279,23 @@ void taskUpperComm(){
   }
 }
 
+void taskBattery(){
+  while(true){
+    ef.wait_any(FLAG_BATTERY);
+
+    uint16_t sensorValue = analogRead(voltagePin);
+    battery = (sensorValue * 310UL) / 1023 - 100;
+
+    is_battery_low = (battery < 120);
+
+  }
+}
 
 void setFlag(){
   if(tick_cnt % tick_rf == 0) ef.set(FLAG_RF);
   if(tick_cnt % tick_robot_control == 0) ef.set(FLAG_ROBOT_CONTROL);
   if(tick_cnt % tick_upper == 0) ef.set(FLAG_UPPER_COMM);
+  if(tick_cnt % tick_battery == 0) ef.set(FLAG_BATTERY);
   ++tick_cnt;
 }
 
