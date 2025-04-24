@@ -77,6 +77,7 @@ void zltech_controller::loop(){
     }
 
     else if (msg.id == 0x180 + _nodeId){
+      updateHeartbeatTimestamp();
       tpdo[0].onReceive(msg.data, msg.data_length);
       leftVel = tpdo[0].getMappedValue(Velocity_actual_value, Left_Motor_Velocity_actual_value); 
       rightVel = tpdo[0].getMappedValue(Velocity_actual_value, Right_Motor_Velocity_actual_value);
@@ -114,6 +115,12 @@ bool zltech_controller::VelocityMode() {
     delay(50);
     // Velocity 모드 설정
     writeObject(MODES_OF_OPERATION, 0x00, 3, 8); // 3 = Velocity mode
+
+    // ========================= 0424 added ==============================
+    writeObject(PROFILE_ACCELERATION,0x01, 100, PROFILE_ACCELERATION_BITS);
+    writeObject(PROFILE_ACCELERATION,0x02, 100, PROFILE_ACCELERATION_BITS);
+    writeObject(PROFILE_DECELERATION,0x01, 300, PROFILE_DECELERATION_BITS);
+    writeObject(PROFILE_DECELERATION,0x02, 300, PROFILE_DECELERATION_BITS);
 
     writeObject(CONTROLWORD, 0x00, 0x06, CONTROLWORD_BITS); // Shutdown
     writeObject(CONTROLWORD, 0x00, 0x07, CONTROLWORD_BITS); // Switch On

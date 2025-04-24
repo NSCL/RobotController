@@ -250,7 +250,7 @@ void taskRobotControl(){
     }
 
     zltech.sendVelocity(l_rpm, -r_rpm);
-    zltech.readVelocity(&left_actual_rpm, &right_actual_rpm );
+    zltech.readVelocity(&left_actual_rpm, &right_actual_rpm);
   }
 }
 
