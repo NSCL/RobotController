@@ -95,7 +95,8 @@ void setup() {
   delay(50);
   
   state = RF_IDLE;
-  rf_controller.setMaxOmega(30.0); // [deg]
+  rf_controller.setMaxOmega(20.0); // [deg]
+  rf_controller.setMaxVelocity(1.5); // [m/s]
   rf_controller.setChannel(CH_ESTOP, CH_DISCONNECT, CH_GEAR, CH_DRIVE_MODE, CH_VELOCITY, CH_OMEGA); // estop, disconnect, gear, drive_mode, throttle, steer,  channels
   rf_controller.begin();
 
@@ -145,7 +146,10 @@ void taskRF(){
     // SERIAL_DEBUG.print(" | Gear: ");
     // SERIAL_DEBUG.print(gear);
     // SERIAL_DEBUG.print(" | State: ");
-    // SERIAL_DEBUG.println(stateToString(state));
+    // SERIAL_DEBUG.print(stateToString(state));
+    // SERIAL_DEBUG.print(" | Battery: ");
+    // SERIAL_DEBUG.println(battery);
+    
   }
 }
 
@@ -180,7 +184,7 @@ void taskRobotControl(){
         if (is_motor_connected) {
           state = DRIVE_READY;
         }
-        
+
         // DD Robot
         zltech.setup();
         break;
@@ -219,7 +223,7 @@ void taskRobotControl(){
 
         l_rpm = static_cast<int32_t>(rpm_left);
         r_rpm = static_cast<int32_t>(rpm_right);
-
+        
         // if (zltech_msg.id == 0x180+NODE_ID){
         //   zltech.readVelocity(zltech_msg, &left_actual_rpm, &right_actual_rpm );
         // }

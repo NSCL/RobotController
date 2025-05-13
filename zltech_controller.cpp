@@ -30,8 +30,9 @@ void zltech_controller::setup(){
     if (CAN.available()) {
       CanMsg msg;
       msg = CAN.read();
-
       if (msg.id == (0x700 + _nodeId) && msg.data_length == 1) {
+        CanMsg msg;
+        msg = CAN.read();
         VelocityMode(); // Start
         _lastHeartbeatTime = millis();
         _isMotorConnect = true;
@@ -113,6 +114,8 @@ bool zltech_controller::VelocityMode() {
     // Serial.println("Heartbeat 전송 1000ms");
 
     delay(50);
+    // Asyn 모드 설정
+    writeObject(ASYN_SYN_CONTROL,0x00, ASYN_CONTROL, ASYN_SYN_CONTROL_BITS);
     // Velocity 모드 설정
     writeObject(MODES_OF_OPERATION, 0x00, 3, 8); // 3 = Velocity mode
 

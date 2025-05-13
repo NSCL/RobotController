@@ -10,6 +10,10 @@
 #define MODES_OF_OPERATION_BITS   8
 #define MODE_OF_OPERATION_DISP    0x6061
 #define MODE_OF_OPERATION_DISP_BITS 8
+#define ASYN_SYN_CONTROL          0x200F
+#define ASYN_CONTROL              0x00
+#define SYN_CONTROL               0x01
+#define ASYN_SYN_CONTROL_BITS     16
 
 // ========== 속도 관련 ==========
 #define Target_velocity                   0x60FF
