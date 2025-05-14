@@ -40,8 +40,10 @@ State state = INIT;
 Gear gear = GEAR_NEUTRAL;
 DriveMode drive_mode = MODE_MANUAL;
 uint8_t estop = 0;
-int velocity = 0;
-int omega = 0;
+
+Command cmd_rf;
+Command cmd_auto;
+
 uint8_t heartbeatState = 255;
 int32_t left_actual_rpm = 0;
 int32_t right_actual_rpm = 0;
@@ -124,9 +126,8 @@ void taskRF(){
       is_estop_rf_on = rf_controller.getEstop();
       drive_mode = rf_controller.getDriveMode();
 
-      rf_controller.getVelocity(&velocity);
-
-      omega = rf_controller.getOmegaAngle() ;
+      rf_controller.getVelocity(&cmd_rf.velocity);
+      cmd_rf.omega = rf_controller.getOmegaAngle() ;
       gear = rf_controller.getGear();
     }
 
@@ -208,25 +209,10 @@ void taskRobotControl(){
           break;
           }
         // velocity, omega
-        // Motor Control
-        float v; // m/s * 100 scale
-        float w; // rad/s * 1000 scale
-        v = (float)(velocity) / 100.0f; // -3 ~ 3[m/s]
-        w = (float)(omega) / 1000.0f; // -2 ~ 2 [rad/s]
-        float delta_vel = w * (WHEELBASE / 2.0); // [m/s]
+        // Motor Control  
+        calcRPM(cmd_rf.velocity, cmd_rf.omega,
+                &l_rpm, &r_rpm);
 
-        float v_left = v - delta_vel; // [m/s]
-        float v_right = v + delta_vel; // [m/s]
-
-        float rpm_left = v_left / WHEEL_R * 60.0f / (2.0f * PI);
-        float rpm_right = v_right / WHEEL_R * 60.0f / (2.0f * PI);
-
-        l_rpm = static_cast<int32_t>(rpm_left);
-        r_rpm = static_cast<int32_t>(rpm_right);
-        
-        // if (zltech_msg.id == 0x180+NODE_ID){
-        //   zltech.readVelocity(zltech_msg, &left_actual_rpm, &right_actual_rpm );
-        // }
         break;
       }
 
@@ -241,6 +227,9 @@ void taskRobotControl(){
       case DRIVE_AUTO: {
         if (drive_mode != MODE_AUTO) state = DRIVE_READY;
 
+        calcRPM(cmd_auto.velocity, cmd_auto.omega,
+                &l_rpm, &r_rpm);
+                
         break;
       }
       
@@ -266,20 +255,28 @@ void taskUpperComm(){
     ef.wait_any(FLAG_UPPER_COMM);
 
     upper_comm.loop();
-    upper_comm.sendPacket(drive_mode, estop, gear, velocity, omega, brake, left_actual_rpm, right_actual_rpm, battery);
+    upper_comm.sendPacket(drive_mode, estop, gear, cmd_rf.velocity, cmd_rf.omega, brake, left_actual_rpm, right_actual_rpm, battery);
 
     is_upper_connected = upper_comm.is_connected;
-    
+
     if (is_upper_connected) {
-      digitalWrite(LED_PIN, HIGH);  // 정상 데이터 수신 중이면 LED OFF
-    } 
-    else {
-      if (millis() % 500 < 250) {
-        digitalWrite(LED_PIN, HIGH);  // 0.25초 켜짐
-      } else {
-        digitalWrite(LED_PIN, LOW);   // 0.25초 꺼짐
-      }
+      upper_comm.getCommand(&cmd_auto.velocity, &cmd_auto.omega);   
     }
+
+    else {
+      cmd_auto.velocity = 0;
+      cmd_auto.omega = 0;
+    }
+    // if (is_upper_connected) {
+    //   digitalWrite(LED_PIN, HIGH);  // 정상 데이터 수신 중이면 LED OFF
+    // } 
+    // else {
+    //   if (millis() % 500 < 250) {
+    //     digitalWrite(LED_PIN, HIGH);  // 0.25초 켜짐
+    //   } else {
+    //     digitalWrite(LED_PIN, LOW);   // 0.25초 꺼짐
+    //   }
+    // }
   }
 }
 
@@ -305,6 +302,24 @@ void setFlag(){
 
 void detectEstopSW() {
     is_estop_btn_on = (digitalRead(PIN_ESTOP) == LOW);
+}
+
+void calcRPM(int target_vel, int target_omgega, 
+              int32_t* l_rpm, int32_t* r_rpm) {
+  float v; // m/s * 100 scale
+  float w; // rad/s * 1000 scale
+  v = (float)(target_vel) / 100.0f; // -3 ~ 3[m/s]
+  w = (float)(target_omgega) / 1000.0f; // -2 ~ 2 [rad/s]
+  float delta_vel = w * (WHEELBASE / 2.0); // [m/s]
+
+  float v_left = v - delta_vel; // [m/s]
+  float v_right = v + delta_vel; // [m/s]
+
+  float rpm_left = v_left / WHEEL_R * 60.0f / (2.0f * PI);
+  float rpm_right = v_right / WHEEL_R * 60.0f / (2.0f * PI);
+
+  *l_rpm = static_cast<int32_t>(rpm_left);
+  *r_rpm = static_cast<int32_t>(rpm_right);
 }
 
 void loop() {

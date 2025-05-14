@@ -52,8 +52,8 @@ class PcComm {
     void begin(HardwareSerial& serial);
     void loop();
 
-    void readCommand(int* speed, int* omega);
-    void setMCUInfo(int omega_L, int omega_R, uint8_t battery_voltage);
+    void getCommand(int* speed, int* omega);
+    // void setMCUInfo(int omega_L, int omega_R, uint8_t battery_voltage);
     void sendPacket(byte AorM, byte ESTOP, byte GEAR, int SPEED, int OMEGA, byte BRAKE, int OMEGA_L, int OMEGA_R, byte BATTERY_V);
 
 };

@@ -14,4 +14,9 @@ enum State : uint8_t{
     ESTOP
 };
 
+struct Command {
+  int velocity = 0;
+  int omega = 0;
+};
+
 #endif // STATE_H

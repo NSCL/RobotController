@@ -119,11 +119,11 @@ bool zltech_controller::VelocityMode() {
     // Velocity 모드 설정
     writeObject(MODES_OF_OPERATION, 0x00, 3, 8); // 3 = Velocity mode
 
-    // ========================= 0424 added ==============================
+    // acc, dec settling time?
     writeObject(PROFILE_ACCELERATION,0x01, 100, PROFILE_ACCELERATION_BITS);
     writeObject(PROFILE_ACCELERATION,0x02, 100, PROFILE_ACCELERATION_BITS);
-    writeObject(PROFILE_DECELERATION,0x01, 300, PROFILE_DECELERATION_BITS);
-    writeObject(PROFILE_DECELERATION,0x02, 300, PROFILE_DECELERATION_BITS);
+    writeObject(PROFILE_DECELERATION,0x01, 100, PROFILE_DECELERATION_BITS);
+    writeObject(PROFILE_DECELERATION,0x02, 100, PROFILE_DECELERATION_BITS);
 
     writeObject(CONTROLWORD, 0x00, 0x06, CONTROLWORD_BITS); // Shutdown
     writeObject(CONTROLWORD, 0x00, 0x07, CONTROLWORD_BITS); // Switch On

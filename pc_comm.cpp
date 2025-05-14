@@ -35,22 +35,20 @@ void PcComm::processPacket(byte *receivedPacket) {
     PcComm::ALIVE = receivedPacket[11];
 
     this->is_alive_on = (alive_prev != ALIVE);
-
-    // // 19바이트 응답 패킷 송신
-    // sendPacket(AorM, ESTOP, GEAR, SPEED, OMEGA, BRAKE, omega_L, omega_R, battery_voltage, ALIVE);
     this->alive_prev = ALIVE;
+
 }
 
-void PcComm::readCommand(int* speed, int* omega) {
-  *speed = this->speed;
-  *omega = this->omega;
+void PcComm::getCommand(int* speed, int* omega) {
+  *speed = SPEED;
+  *omega = OMEGA;
 }
 
-void PcComm::setMCUInfo(int omega_L, int omega_R, uint8_t battery_voltage) {
-  this->omega_L = omega_L;
-  this->omega_R = omega_R;
-  this->battery_voltage = battery_voltage;
-}
+// void PcComm::setMCUInfo(int omega_L, int omega_R, uint8_t battery_voltage) {
+//   this->omega_L = omega_L;
+//   this->omega_R = omega_R;
+//   this->battery_voltage = battery_voltage;
+// }
 
 void PcComm::loop() {
   processIncomingData();
