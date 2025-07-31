@@ -39,16 +39,54 @@ void PcComm::processPacket(byte *receivedPacket) {
 
 }
 
-void PcComm::getCommand(int* speed, int* omega) {
-  *speed = SPEED;
-  *omega = OMEGA;
+void PcComm::getCommandDD(CommandDDRobot &cmd) {
+  cmd.velocity = PcComm::SPEED;
+  cmd.omega = PcComm::OMEGA;
 }
 
-// void PcComm::setMCUInfo(int omega_L, int omega_R, uint8_t battery_voltage) {
-//   this->omega_L = omega_L;
-//   this->omega_R = omega_R;
-//   this->battery_voltage = battery_voltage;
-// }
+void PcComm::getCommandSteer(CommandSteeringRobot &cmd) {
+  // velocity
+  uint16_t vel = PcComm::SPEED;
+  if (vel > 5) {
+    cmd.velocity = 5;
+  }
+  else {cmd.velocity = vel;}
+  
+  // brake
+  cmd.brake = PcComm::BRAKE;
+
+  // omega
+  cmd.steer = PcComm::OMEGA;
+  if (cmd.steer > 20)
+  {
+    cmd.steer = 20;
+  }
+  else if (cmd.steer < -20)
+  {
+    cmd.steer = -20;
+  }
+
+  // gear
+  switch (PcComm::GEAR) {
+    case 1:
+      cmd.gear = GEAR_FORWARD;
+      break;
+    case 0:
+      cmd.gear = GEAR_NEUTRAL;
+      break;
+    case -1:
+      cmd.gear = GEAR_REVERSE;
+      break;
+    case -100:
+    default:
+      cmd.gear = GEAR_NONE;
+      break;
+  }
+
+  // estop
+  cmd.estop = PcComm::ESTOP;
+
+}
 
 void PcComm::loop() {
   processIncomingData();

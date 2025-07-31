@@ -3,8 +3,7 @@
 
 #include <Arduino.h>
 #include "IBusBM.h"
-#include "gear.h"
-#include "drive_mode.h"
+#include "util.h"
 
 class RFController {
 protected:
@@ -14,28 +13,65 @@ protected:
     uint8_t CH_NULL = 255;
     uint8_t CH_ESTOP = CH_NULL;
     uint8_t CH_DISCONNECT = CH_NULL;
-    uint8_t CH_GEAR;
     uint8_t CH_DRIVE_MODE;
     
     int cnt_rec = 0;
-    bool is_channel_assigned = false;
+    
+    virtual bool checkChannel();
+    virtual bool readSwitch(uint8_t channel, bool defaultValue);
+    virtual int readChannel(uint8_t channel, int minLimit, int maxLimit, int defaultValue);
+    virtual int readThreeStageSwitch(uint8_t channel, int defaultValue);
 
 public:
     // 생성자
     RFController(HardwareSerial& serial);
 
-    virtual void setChannel(uint8_t estopChannel, uint8_t disconnectChannel, uint8_t gearChannel, uint8_t driveModeChannel);
-    virtual bool checkChannel();
-    virtual bool begin();
-    virtual int readChannel(uint8_t channel, int minLimit, int maxLimit, int defaultValue);
-    virtual int readThreeStageSwitch(uint8_t channel, int defaultValue);
-    virtual bool isConnected();
-    virtual Gear getGear();
-    virtual DriveMode getDriveMode();
-    virtual uint8_t getEstop();
+    bool is_connected = false;
 
-protected:
-    virtual bool readSwitch(uint8_t channel, bool defaultValue);
+    virtual void setChannel(uint8_t estopChannel, uint8_t disconnectChannel, uint8_t driveModeChannel);
+    virtual bool begin();
+    virtual void checkConnection();
+};
+
+class RFControllerDDRobot : public RFController {
+private:
+    uint8_t CH_VEL_BRK;
+    uint8_t CH_OMEGA;
+    uint16_t max_omega = 3000; // [deg] * 100
+    uint16_t max_vel = 150; // [m/s] * 100
+    
+public:
+    RFControllerDDRobot(HardwareSerial& serial);
+
+    void setChannel(uint8_t estopChannel, uint8_t disconnectChannel, uint8_t driveModeChannel, uint8_t velBrkChannel, uint8_t omegaChannel);
+    void setMaxOmega(float max_omega_);
+    void setMaxVelocity(float max_vel_);
+
+    // void getVelocity(int* velocity);
+    // void getOmegaAngle(int* omega);
+
+    void getCommand(CommandDDRobot& cmd);
+};
+
+class RFControllerSteeringRobot : public RFController {
+private:
+    uint8_t CH_VEL_BRK;
+    uint8_t CH_STEER;
+    uint8_t CH_GEAR;
+    uint16_t max_steer = 3000; // [deg] * 100
+    uint16_t max_vel = 150; // [m/s] * 100
+    
+public:
+    RFControllerSteeringRobot(HardwareSerial& serial);
+
+    void setChannel(uint8_t estopChannel, uint8_t disconnectChannel, uint8_t gearChannel, uint8_t driveModeChannel, uint8_t velBrkChannel, uint8_t steerChannel);
+    void setMaxSteer(float max_steer_);
+    void setMaxVelocity(float max_vel_);
+
+    // void getVelocity(int* velocity);
+    // void getOmegaAngle(int* omega);
+
+    void getCommand(CommandSteeringRobot& cmd);
 };
 
 #endif // RFCONTROLLER_H

@@ -2,6 +2,7 @@
 #define PC_COMM_H
 
 #include <Arduino.h>
+#include "util.h"
 
 const uint8_t BUFFER_SIZE = 32;
 
@@ -17,14 +18,7 @@ class PcComm {
     unsigned long lastReceivedTime = 0;  // 마지막 데이터 수신 시간
     const uint8_t TIMEOUT_MS = 1000;
 
-    int speed = 0;
-    int omega = 0; // rotation angle
-    int omega_L = 0; // left motor angular vel
-    int omega_R = 0; // right motor angular vel
-    byte battery_voltage = 0;
     byte alive_prev = 0;
-    byte cnt_hb = 0; // count of heartbeat
-
     bool is_alive_on;
     bool is_upper_on;
 
@@ -52,7 +46,8 @@ class PcComm {
     void begin(HardwareSerial& serial);
     void loop();
 
-    void getCommand(int* speed, int* omega);
+    void getCommandDD(CommandDDRobot &cmd);
+    void getCommandSteer(CommandSteeringRobot &cmd);
     // void setMCUInfo(int omega_L, int omega_R, uint8_t battery_voltage);
     void sendPacket(byte AorM, byte ESTOP, byte GEAR, int SPEED, int OMEGA, byte BRAKE, int OMEGA_L, int OMEGA_R, byte BATTERY_V);
 

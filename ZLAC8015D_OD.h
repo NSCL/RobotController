@@ -46,8 +46,6 @@
 #define QUICKSTOP_DECELERATION       0x6085
 #define QUICKSTOP_DECELERATION_BITS 32
 
-
-
 // ========== 노드 및 통신 ==========
 #define CAN_NODE_ID               0x200A
 #define CAN_NODE_ID_BITS          8
